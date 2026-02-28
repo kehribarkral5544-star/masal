@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yalnız Tavşanın Kalp Yolculuğu</title>
+
+  <style>
+    body{
+      margin:0;
+      background: linear-gradient(135deg, #fbc2eb, #a6c1ee);
+      font-family:'Georgia', serif;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+    }
+
+    .book{
+      width:min(900px,95vw);
+      height:min(600px,90vh);
+      border-radius:16px;
+      box-shadow:0 20px 60px rgba(0,0,0,.4);
+      position:relative;
+      overflow:hidden;
+      background:#f6f1e7;
+    }
+
+    /* Sayfa sistemi GARANTİ */
+    .page{
+      position:absolute;
+      top:0; left:0;
+      width:100%;
+      height:100%;
+      display:none;
+      box-sizing:border-box;
+      overflow:hidden;
+    }
+    .page.active{ display:block; }
+    .page[hidden]{ display:none !important; }
+
+    /* Kapak */
+    .cover{
+      background:linear-gradient(180deg,#1b2147,#0f1226);
+      color:#fff;
+    }
+    .cover .inner{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:24px;
+      box-sizing:border-box;
+    }
+    .subtitle{opacity:.9;margin-top:8px}
+    .dedication{margin-top:24px;font-style:italic;opacity:.95}
+    .illus{
+      width:100%;
+      height:220px;
+      border-radius:12px;
+      background:radial-gradient(circle at 30% 30%, #fff6, transparent 40%),
+                 linear-gradient(135deg,#d9e4ff,#ffe0e6);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin:18px 0;
+    }
+    .illus span{font-size:42px}
+
+    /* Fotoğraflı sayfalar */
+    .story{
+      background-size:cover;
+      background-position:center;
+      background-repeat:no-repeat;
+    }
+     .cover .inner{
+      background: transparent !important;
+    }
+
+    .cover .illus{
+     background: transparent !important;
+   }
+
+    /* Yazı direkt fotoğraf üstünde + altta */
+    .story .text{
+      position:absolute;
+      left:0; right:0; bottom:0;
+      padding:26px 28px;
+      max-height:58%;
+      overflow:auto;
+      color:#fff;
+      text-shadow: 0 3px 14px rgba(0,0,0,.85);
+      box-sizing:border-box;
+    }
+    .story h2{
+      margin:0 0 10px 0;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      font-size:24px;
+    }
+    .story p{
+      margin:0;
+      font-size:18px;
+      line-height:1.6;
+    }
+
+    /* Son sayfa */
+    .final{
+      background:#f6f1e7;
+      color:#2b2b2b;
+      padding:48px 56px;
+      overflow:auto;
+      box-sizing:border-box;
+    }
+    .footerNote{margin-top:24px;text-align:center;font-style:italic}
+
+    /* ==========================
+       NAV: ikon butonlar (kitabın içinde orta-sol / orta-sağ)
+       ========================== */
+    .nav{
+      position:absolute;
+      top:50%;
+      left:0; right:0;
+      transform:translateY(-50%);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:0 14px;
+      z-index:80;
+      pointer-events:none;
+    }
+    .nav button{
+      pointer-events:auto;
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.35);
+      background:rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      box-shadow:0 12px 28px rgba(0,0,0,.26);
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:20px;
+      font-weight:900;
+      line-height:1;
+      transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+      user-select:none;
+    }
+    .nav button:hover{
+      transform:scale(1.08);
+      box-shadow:0 16px 36px rgba(0,0,0,.32);
+    }
+    .nav button:active{ transform:scale(1.02); }
+    .nav button:disabled{
+      opacity:.35;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:0 12px 22px rgba(0,0,0,.18);
+    }
+
+    /* Mobil */
+    @media (max-width:600px){
+      .story .text{ padding:16px 14px; max-height:66%; }
+      .story h2{ font-size:18px; }
+      .story p{ font-size:16px; }
+      .illus{ height:160px; }
+      .final{ padding:24px 18px; }
+
+      .nav{ padding:0 10px; }
+      .nav button{ width:40px; height:40px; font-size:18px; }
+    }
+
+    /* ==========================
+       TEK SAYFA - ORTADAN KATLANMA (HALF FOLD) OVERLAY
+       ========================== */
+    .flip-overlay{
+      position:absolute;
+      inset:0;
+      z-index:70;
+      pointer-events:none;
+      perspective:1400px;
+      transform-style:preserve-3d;
+    }
+
+    /* Alt katman: yeni sayfa full */
+    .flip-base{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    /* Üstte sabit kalan yarım (sol veya sağ) */
+    .flip-static-half{
+      position:absolute;
+      top:0; bottom:0;
+      width:50%;
+      overflow:hidden;
+      z-index:2;
+    }
+
+    /* Katlanan yarım */
+    .flip-fold{
+      position:absolute;
+      top:0; bottom:0;
+      width:50%;
+      z-index:3;
+      transform-style:preserve-3d;
+      will-change:transform;
+    }
+
+    /* Yarım görünümü için: içeriği 200% geniş, yarısını gösteriyoruz */
+    .half-content{
+      position:absolute;
+      top:0; left:0;
+      width:200%;
+      height:100%;
+    }
+
+    /* Sağ yarım gösterimi: içeriği sola kaydır */
+    .is-right .half-content{ left:-50%; }
+
+    /* Fold yüzleri */
+    .fold-face{
+      position:absolute;
+      inset:0;
+      backface-visibility:hidden;
+      transform-style:preserve-3d;
+      overflow:hidden;
+    }
+
+    /* Arka yüz: 180 döndür */
+    .fold-back{
+      transform:rotateY(180deg);
+      filter:brightness(.78) contrast(1.02);
+    }
+
+    /* Katlanma sırasında orta çizgi parlama / gölge */
+    .crease{
+      position:absolute;
+      top:0; bottom:0;
+      left:0;
+      width:18px;
+      pointer-events:none;
+      opacity:.0;
+      transition:opacity .5s ease;
+      background:linear-gradient(90deg,
+        rgba(255,255,255,.0),
+        rgba(255,255,255,.22),
+        rgba(0,0,0,.14),
+        rgba(0,0,0,.0)
+      );
+    }
+
+    /* Sağ yarım katlanırken: menteşe ortada (sol kenarından döner) */
+    .fold-right{
+      left:50%;
+      transform-origin:left center;
+    }
+    /* Sol yarım katlanırken: menteşe ortada (sağ kenarından döner) */
+    .fold-left{
+      left:0;
+      transform-origin:right center;
+    }
+
+    /* Animasyon */
+    .flip-anim{
+      transition: transform 760ms cubic-bezier(.5,.07,.2,1);
+    }
+
+/* =========================
+   MOBİL: FOTO + YAZI + BOŞLUK DÜZELTME
+   ========================= */
+@media (max-width: 700px){
+
+  /* Genel alan */
+  body{
+    align-items: flex-start !important;
+    padding: 18px 0 !important;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  .book{
+    width: 94vw !important;
+    height: 82vh !important;
+    background: transparent !important;
+  }
+
+  /* Sayfa arka planı (beyaz boşluk yerine resim tonuna yakın koyu) */
+  .page{
+    padding: 0 !important;
+    background-color: #151827 !important;  /* boşluk rengi */
+    overflow: hidden !important;
+  }
+
+  /* Background-image olan sayfalar */
+  .page{
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+  }
+
+  /* Eğer img etiketi varsa */
+  .page img{
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  /* ✅ YAZI KUTUSU: net, okunur, taşmaz */
+  .text-overlay, .overlay, .caption, .content{
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+
+    bottom: 14px !important;
+    top: auto !important;
+
+    width: calc(100% - 24px) !important;
+    max-height: 45% !important;
+    overflow: auto !important;
+
+    padding: 12px 12px !important;
+
+    background: rgba(0,0,0,0.62) !important;  /* daha koyu */
+    color: #fff !important;
+
+    border-radius: 14px !important;
+    backdrop-filter: blur(2px) !important;
+  }
+
+  /* Yazı ayarı */
+  .text-overlay p, .overlay p, .caption p, .content p,
+  .page p{
+    font-size: 15px !important;
+    line-height: 1.55 !important;
+    margin: 0 !important;
+  }
+
+  /* Üst başlık (SEN / BENİM gibi) */
+  .text-overlay h1, .text-overlay h2,
+  .overlay h1, .overlay h2,
+  .caption h1, .caption h2,
+  .content h1, .content h2{
+    margin: 0 0 8px 0 !important;
+    font-size: 22px !important;
+    line-height: 1.1 !important;
+  }
+}
+  </style>
+</head>
+
+<body>
+  <div class="book" id="book">
+
+    <!-- 1 Kapak -->
+    <section class="page cover active" style="background-image:url('images/kapak.jpg'); background-size:cover; background-position:center;">
+      <div class="inner">
+        <h1>Yalnız Tavşanın Kalp Yolculuğu</h1>
+        <div class="subtitle">Tamamen Sana Özel Masalsı Bir Aşk Hikayesi ZEYNEBİM</div>
+        <div class="illus">
+        <div class="illus">
+       
+        <div class="dedication"><strong>Zeynep Prenses’e SENİ ÇOK SEVİYORUM</strong></div>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="page story" style="background-image:url('images/page2.jpg')" hidden>
+      <div class="text">
+        <h2>SEN</h2>
+        <p>Bir zamanlar, çok uzaklarda bir yerde, uçsuz bucaksız, yemyeşil ve masal gibi bir orman varmış. Bu ormanda sabahları kuşların şarkıları yankılanır, akşamları ağaçların yaprakları rüzgârla fısıldaşırmış. Güneş, dalların arasından süzülürken ormana altın rengi bir ışık yayar, gece olunca ay her yeri gümüş gibi aydınlatırmış.</p>
+      </div>
+    </section>
+
+    <!-- 3 -->
+    <section class="page story" style="background-image:url('images/page3.jpg')" hidden>
+      <div class="text">
+        <h2>BENİM</h2>
+        <p>İşte bu güzel ormanın içinde, küçük ama sevimli bir kulübede tek başına yaşayan bir tavşan varmış. Bu tavşanın ne ailesi ne de arkadaşları varmış. Günlerini tek başına geçirir, kimseyle konuşmadan, kimseyle gülmeden yaşarmış. Bu yüzden kalbi hep biraz eksik, gözleri hep biraz hüzünlüymüş. Ormandaki herkes onu tanır ama kimse yanına oturup hâlini sormazmış. yalnız olduğu için herkes ona “Yalnız Tavşan” diye seslenirmiş.</p>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="page story" style="background-image:url('images/page4.jpg')" hidden>
+      <div class="text">
+        <h2>EN</h2>
+        <p>Yalnız Tavşan her gün erkenden uyanır, evini temizler, etraftaki işleriyle uğraşırmış. Ama yaptığı hiçbir şey içindeki boşluğu doldurmazmış. Akşamları kulübesinin önüne oturur, uzaktan gelen kahkahaları dinler, birlikte yürüyen tavşanları izler ve içinden sessizce “Keşke benim de bir dostum olsaydı,” diye geçirirmiş.</p>
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section class="page story" style="background-image:url('images/page5.jpg')" hidden>
+      <div class="text">
+        <h2>DEĞER</h2>
+        <p>Günlerin birinde Yalnız Tavşan yine her zamanki gibi işlerini bitirmiş. Çok yorulmuş, karnı da iyice acıkmış. “Biraz havuç yiyip sonra uyuyayım,” diye düşünmüş. Evinin hemen yanındaki havuç tarlasına gitmiş. Toprağın altını eşelemiş, en taze, en parlak havucu aramış. Uzun uğraşlardan sonra sonunda diğerlerinden daha büyük, daha turuncu ve daha güzel bir havuç bulmuş.</p>
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section class="page story" style="background-image:url('images/page6.jpg')" hidden>
+      <div class="text">
+        <h2>VERDİĞİM</h2>
+        <p>Onu görünce yüzü gülmüş. Uzun zamandır ilk defa içini küçük bir sevinç kaplamış. Havuç elindeyken eve doğru yürümeye başlamış. Tam bu sırada karşısına iki tavşan çıkmış. Yan yana yürüyorlar, gülüyorlar, birbirlerine sevgiyle bakıyorlarmış. Belli ki birbirlerini çok seviyorlarmış.</p>
+      </div>
+    </section>
+
+    <!-- 7 -->
+    <section class="page story" style="background-image:url('images/page7.jpg')" hidden>
+      <div class="text">
+        <h2>VE</h2>
+        <p>Yalnız Tavşan onları görünce bir an duraklamış. Kalbi sıkışmış, boğazı düğümlenmiş. Onların mutluluğu ona kendi yalnızlığını daha da hissettirmiş. Elindeki havuca bakmış, sonra yere bırakmış. Gözleri dolmuş ama ağlamamış. Hiçbir şey söylemeden arkasını dönmüş ve oradan uzaklaşmış. Eve vardığında yorgunluğu, açlığı ve üzüntüsü bir araya gelmiş. Kendini yatağına bırakmış ve derin bir uykuya dalmış.</p>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section class="page story" style="background-image:url('images/page8.jpg')" hidden>
+      <div class="text">
+        <h2>EN</h2>
+        <p>O gece rüyasında parlak ışıklar içinde bir peri belirmiş. Yüzü ciddi ama sesi yumuşakmış. Peri ona seslenmiş: “Yalnız Tavşan, korkma. Ben bu ormanın sihirli perisiyim. Senin ne kadar yalnız ve üzgün olduğunu biliyorum. Bu yüzden geldim. Sana bir görev vereceğim.”</p>
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section class="page story" style="background-image:url('images/page9.jpg')" hidden>
+      <div class="text">
+        <h2>ÇOK</h2>
+        <p>Sonra ona Zeynep Prenses’ten bahsetmiş. Bir zamanlar sesiyle herkesi mutlu eden, şarkılarıyla ormana neşe saçan ama kötü bir cadı yüzünden kalbi çalınan prensesi anlatmış. Kalbi olmadığı için kimseyi sevemeyen, şarkı söyleyemeyen ve yalnızlığa mahkûm kalan Zeynep Prenses’i… Peri sözlerini bitirirken elinde küçük bir paket belirmiş: “Cadıyı yendim ve bu kalbi geri aldım. Şimdi onu sana emanet ediyorum. Git, Zeynep Prenses’i bul ve kalbini ona geri ver. Belki ikiniz de yalnızlıktan kurtulursunuz.”</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class="page story" style="background-image:url('images/page10.jpg')" hidden>
+      <div class="text">
+        <h2>SEVDİĞİM</h2>
+        <p>Yalnız Tavşan korkuyla uyanmış. Ter içindeymiş. “Sadece bir rüyaydı,” demiş. Ama tam tekrar uyumaya çalışırken elinde bir şey olduğunu fark etmiş. Küçük bir paket… Üzerinde “Zeynep Prenses’in Kalbi” yazıyormuş. Kalbi hızla atmaya başlamış. Kulaklarında kendi kalp atışlarının sesi yankılanıyormuş. Paketi elinden düşürmüş, birkaç adım geri çekilmiş. Gözleri korkuyla açılmış, nefesi düzensizleşmiş. Bir süre olduğu yerde kalakalmış.</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="page story" style="background-image:url('images/page11.jpg')" hidden>
+      <div class="text">
+        <h2>HAYATIMI</h2>
+        <p>Sonra yavaşça pakete doğru yaklaşmış. Titreyen elleriyle paketi yerden almış. “Bu… bu gerçek olamaz,” diye fısıldamış. Paketi dikkatlice açmış. İçinde, hafifçe ışıldayan bir kalp varmış. Sanki canlıymış gibi atıyormuş. O an rüyada gördüğü her şey bir bir aklına gelmiş. Perinin sesi, söyledikleri, verdiği görev… Hepsinin gerçek olduğunu anlamış.</p>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="page story" style="background-image:url('images/page12.jpg')" hidden>
+      <div class="text">
+        <h2>ADADIĞIM</h2>
+        <p>Korkmuş ama aynı zamanda içinde daha önce hiç hissetmediği bir cesaret belirmiş. Derin bir nefes almış. “Eğer bu kalp bana emanet edildiyse,” demiş kendi kendine, “onu sahibine götürmeliyim.” O gece sabaha kadar uyuyamamış. Düşünmüş, korkmuş, vazgeçmeyi bile istemiş. Ama her seferinde aklına yalnızlığı gelmiş. Gün doğarken kararını vermiş. Küçük bir bohça hazırlamış, biraz yiyecek ve suyunu almış. Paketi özenle saklamış ve evinden çıkmış.</p>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="page story" style="background-image:url('images/page13.jpg')" hidden>
+      <div class="text">
+        <h2>EN</h2>
+        <p>Orman gündüzleri bile ona yabancı gelmeye başlamış. Hangi yoldan gideceğini bilmiyormuş. Bazen durup etrafına bakıyor, bazen sadece yürüyormuş. Günler geçmiş. Açlık, susuzluk ve yorgunluk artmış ama Yalnız Tavşan yoluna devam etmiş. Bir gün susuzluktan dudakları kurumuşken bir nehir görmüş. Sevinçle nehre yaklaşmış. Suyunu içmiş, matarasını doldurmuş. Eğildiğinde suda kendi yansımasını görmüş. Gözleri yorgun, kulakları düşmüş, yüzü solgunmuş. “Ne kadar değişmişim,” diye düşünmüş. Ama ardından pakete bakmış. “Değer,” demiş sessizce.</p>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section class="page story" style="background-image:url('images/page14.jpg')" hidden>
+      <div class="text">
+        <h2>İYİ</h2>
+        <p>Günler haftalara dönüşmüş. Zeynep Prenses’i hiçbir yerde bulamamış. Umudu yavaş yavaş tükenmeye başlamış. Yiyeceği azalmış, gücü kalmamış. Bir an durup geri dönmeyi düşünmüş. “Belki de bu benim yapabileceğim bir şey değildir,” demiş. Tam o sırada yorgunluktan daha fazla dayanamayacağını hissedip bir ağacın altına uzanmış.</p>
+      </div>
+    </section>
+
+    <!-- 15 -->
+    <section class="page story" style="background-image:url('images/page15.jpg')" hidden>
+      <div class="text">
+        <h2>EN</h2>
+        <p>Gözleri gökyüzüne dalmışken etrafında bir hışırtı duymamış bile. Sessizce yaklaşan bir yılan, fırsatını bulup onu sokmuş. Canı yanınca yerinden fırlamış ve kaçmaya başlamış. Bir süre sonra zehir vücuduna yayılmış. Bacakları titremiş, gözleri kararmış. Daha fazla dayanamayarak yere yığılmış.</p>
+      </div>
+    </section>
+
+    <!-- 16 -->
+    <section class="page story" style="background-image:url('images/page16.jpg')" hidden>
+      <div class="text">
+        <h2>MUHTEŞEM</h2>
+        <p>Gözlerini açtığında başının altında yumuşak bir minder hissetmiş. Ne kadar süre geçtiğini bilmiyormuş. Her yanı tutulmuş, hareket edemiyormuş. Bulanık gözlerle etrafına bakmış. Küçük, sıcak bir evde olduğunu fark etmiş. Kapı açılmış. İçeri giren tavşan öylesine zarif ve güzellmiş ki Yalnız Tavşan bir an nefes almayı unutmuş. Kalbi yeniden hızlanmış. Onu görür görmez bunun Zeynep Prenses olduğunu anlamış.</p>
+      </div>
+    </section>
+
+    <!-- 17 -->
+    <section class="page story" style="background-image:url('images/page17.jpg')" hidden>
+      <div class="text">
+        <h2>VARLIKSIN</h2>
+        <p>Zeynep Prenses yavaşça yanına yaklaşmış. “İyi ki uyandın,” demiş yumuşak bir sesle. Yalnız Tavşan zor da olsa konuşmuş: “Se… sen Zeynep Prenses misin?” Zeynep Prenses şaşırmış, biraz da tedirgin olmuş. “Beni nereden tanıyorsun?” diye sormuş. Yalnız Tavşan başına gelen her şeyi, rüyasını, periyi ve kalbi anlatmış. Zeynep Prenses dinledikçe gözleri dolmuş.</p>
+      </div>
+    </section>
+
+    <!-- 18 -->
+    <section class="page story" style="background-image:url('images/page18.jpg')" hidden>
+      <div class="text">
+        <h2>ZEYNEBİMMM</h2>
+        <p>“Peki… kalbim gerçekten sende mi?” diye sormuş titrek bir sesle. Yalnız Tavşan paketi uzatmış. Zeynep Prenses çekinerek almış. Paketi açtığında kalbini görmüş. Ellerini göğsüne götürmüş, derin bir nefes almış. Kalbi yerine koyduğu anda sanki evin içi aydınlanmış. Zeynep Prenses’in yüzü gülmüş, sesi geri gelmiş.</p>
+      </div>
+    </section>
+
+    <!-- 19 -->
+    <section class="page story" style="background-image:url('images/page19.jpg')" hidden>
+      <div class="text">
+        <h2>SENİ ÇOK SEVİYORUM</h2>
+        <p>Yalnız Tavşan ona bakmış ve gülümsemiş. “Bu kalbi senden başkası hak etmez,” demiş. Sonra cesaretini toplayıp kendi kalbini de uzatmış: “Bu da sende kalsın. Çünkü artık yalnız olmak istemiyorum.” Zeynep Prenses gözleri dolu dolu ona yaklaşmış. Kalpler birleştiğinde ikisinin de içi ısınmış. Yalnızlıkları geride kalmış. O günden sonra ormanda artık yalnızlık kalmamış. Şarkılar, kahkahalar ve sevgi ormanın her yanına yayılmış. Ve onlar, kalpleri bir olan iki eş olarak, sonsuza kadar mutlu yaşamışlar.</p>
+      </div>
+    </section>
+
+    <!-- 20 Son sayfa -->
+<section class="page story" style="background-image:url('images/page20.jpg')" hidden>
+  <div class="text">
+    <h2>....Sıradan Ve Basit Bir Hikaye Bile Seninle Efsaneleşiyor Zeynep Hanım</h2>
+    <p>
+      SEN BENİM YAŞAMA SEBEBİM OLDUN İYİKİ VARSIN PAMUK ŞEKERİM<br><br>
+      Bende bu tavşan gibiydim senden önce,<br>
+      seninle girdi umut ve mutluluk ömrüme .<br>
+      ayrılamam artık senden ahirette bile,<br>
+      çünkü kalbim ebediyete kadar senin elinde…<br>
+      SENİ ÇOK SEVİYORUM BUCİİİİ....
+    </p>
+  </div>
+</section>
+
+    <div class="nav">
+      <button id="prev" aria-label="Önceki">‹</button>
+      <button id="next" aria-label="Sonraki">›</button>
+    </div>
+
+  </div>
+
+  <script>
+    const pages = [...document.querySelectorAll('.page')];
+    const book  = document.getElementById('book');
+    const prev  = document.getElementById('prev');
+    const next  = document.getElementById('next');
+
+    let i = 0;
+    let animating = false;
+
+    function setActive(index){
+      i = Math.max(0, Math.min(pages.length - 1, index));
+      pages.forEach((p, idx) => {
+        const active = idx === i;
+        p.classList.toggle('active', active);
+        p.hidden = !active;
+      });
+      prev.disabled = animating || (i === 0);
+      next.disabled = animating || (i === pages.length - 1);
+    }
+
+    function cloneForHalf(pageEl){
+      // sayfanın birebir kopyası (hikayeye dokunmuyoruz, sadece kopyalıyoruz)
+      const c = pageEl.cloneNode(true);
+      c.classList.remove('active');
+      c.hidden = false;
+      c.style.display = 'block';
+      c.style.position = 'absolute';
+      c.style.inset = '0';
+      c.style.width = '100%';
+      c.style.height = '100%';
+      return c;
+    }
+
+    function buildHalf(pageEl, side){ // side: 'left' | 'right'
+      const half = document.createElement('div');
+      half.className = 'flip-static-half ' + (side === 'right' ? 'is-right' : '');
+      half.style.left = (side === 'right') ? '50%' : '0';
+
+      const inner = document.createElement('div');
+      inner.className = 'half-content';
+      inner.appendChild(cloneForHalf(pageEl));
+      half.appendChild(inner);
+      return half;
+    }
+
+    function buildFold(pageEl, side){ // side: 'right' fold or 'left' fold
+      const fold = document.createElement('div');
+      fold.className = 'flip-fold ' + (side === 'right' ? 'fold-right is-right' : 'fold-left');
+
+      // front
+      const front = document.createElement('div');
+      front.className = 'fold-face fold-front ' + (side === 'right' ? 'is-right' : '');
+      const frontInner = document.createElement('div');
+      frontInner.className = 'half-content';
+      frontInner.appendChild(cloneForHalf(pageEl));
+      front.appendChild(frontInner);
+
+      // back (aynı içerik, biraz koyu – kağıt arkası gibi)
+      const back = document.createElement('div');
+      back.className = 'fold-face fold-back ' + (side === 'right' ? 'is-right' : '');
+      const backInner = document.createElement('div');
+      backInner.className = 'half-content';
+      backInner.appendChild(cloneForHalf(pageEl));
+      back.appendChild(backInner);
+
+      const crease = document.createElement('div');
+      crease.className = 'crease';
+      crease.style.left = (side === 'right') ? '0' : 'calc(100% - 18px)';
+
+      fold.appendChild(front);
+      fold.appendChild(back);
+      fold.appendChild(crease);
+
+      return fold;
+    }
+
+    function flipTo(nextIndex){
+      if(animating) return;
+      nextIndex = Math.max(0, Math.min(pages.length - 1, nextIndex));
+      if(nextIndex === i) return;
+
+      animating = true;
+      prev.disabled = true;
+      next.disabled = true;
+
+      const dir = nextIndex > i ? 'toRight' : 'toLeft'; // toRight: ilerle (sağ ok), sağ yarım katlanır
+
+      const currentPage = pages[i];
+      const nextPage    = pages[nextIndex];
+
+      // Overlay kur
+      const overlay = document.createElement('div');
+      overlay.className = 'flip-overlay';
+
+      // Alt katman: yeni sayfa full
+      const base = document.createElement('div');
+      base.className = 'flip-base';
+      base.appendChild(cloneForHalf(nextPage));
+      overlay.appendChild(base);
+
+      if(dir === 'toRight'){
+        // Sol yarım sabit (current)
+        const staticLeft = buildHalf(currentPage, 'left');
+        overlay.appendChild(staticLeft);
+
+        // Sağ yarım katlanır (current)
+        const foldRight = buildFold(currentPage, 'right');
+        overlay.appendChild(foldRight);
+
+        // Sayfaları gizle (gerçek sayfalar animasyon boyunca görünmesin)
+        currentPage.hidden = true;
+        nextPage.hidden = true;
+
+        // Animasyon başlat
+        requestAnimationFrame(() => {
+          foldRight.classList.add('flip-anim');
+          foldRight.querySelector('.crease').style.opacity = '1';
+          foldRight.style.transform = 'rotateY(-180deg)';
+        });
+
+        // Bitir
+        foldRight.addEventListener('transitionend', () => {
+          overlay.remove();
+          animating = false;
+          setActive(nextIndex);
+        }, { once:true });
+
+      } else {
+        // Sağ yarım sabit (current)
+        const staticRight = buildHalf(currentPage, 'right');
+        overlay.appendChild(staticRight);
+
+        // Sol yarım katlanır (current)
+        const foldLeft = buildFold(currentPage, 'left');
+        overlay.appendChild(foldLeft);
+
+        currentPage.hidden = true;
+        nextPage.hidden = true;
+
+        requestAnimationFrame(() => {
+          foldLeft.classList.add('flip-anim');
+          foldLeft.querySelector('.crease').style.opacity = '1';
+          foldLeft.style.transform = 'rotateY(180deg)';
+        });
+
+        foldLeft.addEventListener('transitionend', () => {
+          overlay.remove();
+          animating = false;
+          setActive(nextIndex);
+        }, { once:true });
+      }
+
+      book.appendChild(overlay);
+    }
+
+    prev.onclick = () => flipTo(i - 1);
+    next.onclick = () => flipTo(i + 1);
+
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'ArrowRight') next.click();
+      if(e.key === 'ArrowLeft') prev.click();
+    });
+
+    setActive(0);
+  </script>
+</body>
+</html>
